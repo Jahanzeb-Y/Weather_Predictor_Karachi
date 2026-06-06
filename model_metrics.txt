@@ -1,4 +1,4 @@
 Algorithm: Random Forest
-Updated: 2026-06-07 01:58:51
-RMSE: 5.9445
-R2 Score: 0.5731
+Updated: 2026-06-06 21:32:53
+RMSE: 6.3441
+R2 Score: 0.5435
