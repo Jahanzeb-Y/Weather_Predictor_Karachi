@@ -25,7 +25,7 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
 
-    - name: Execute Model Experimentation and Selection
+    - name: Execute Feature Pipeline Script
       env:
-        HOPSWORKS_API_KEY: ${{ secrets.HOPSWORKS_API_KEY }}
-      run: python train_pipeline.py
+        MONGO_URI: ${{ secrets.MONGO_URI }}
+      run: python feature_pipeline.py

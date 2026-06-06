@@ -27,5 +27,5 @@ jobs:
 
     - name: Execute Feature Pipeline Script
       env:
-        HOPSWORKS_API_KEY: ${{ secrets.HOPSWORKS_API_KEY }}
+        MONGO_URI: ${{ secrets.MONGO_URI }}
       run: python feature_pipeline.py

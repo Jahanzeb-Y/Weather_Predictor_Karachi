@@ -1,13 +1,12 @@
 import os
-import tempfile
 import requests
 import pandas as pd
-import hopsworks
 from datetime import datetime, timedelta
+from pymongo import MongoClient, UpdateOne
 
 # --- CONFIGURATION ---
-# Set your Hopsworks API key here so the script can log in automatically
-os.environ["HOPSWORKS_API_KEY"] = "nqwhi0tLZlZzJQpq.jQ0OUyguCdCUbb11UoH4HA8qHmJmXyna27JEPJwJcszSet2W5GNRRopC7WpQZGSz"
+# We will pull this securely from GitHub Secrets in production
+MONGO_URI = os.getenv("MONGO_URI", "mongodb+srv://JahanzebYameen:<10603770569>@karachiaqifeatures.cmueb2n.mongodb.net/?appName=KarachiAQIFeatures")
 
 # Karachi coordinates
 LATITUDE = 24.8607
@@ -31,7 +30,6 @@ def fetch_raw_data(start_date, end_date):
         
     raw_data = response.json()["hourly"]
     
-    # Convert raw JSON data into a clean spreadsheet/dataframe format
     df = pd.DataFrame(raw_data)
     df['time'] = pd.to_datetime(df['time'])
     return df
@@ -44,54 +42,58 @@ def engineer_features(df):
     # Ensure data is sorted correctly by time order
     df = df.sort_values('time').reset_index(drop=True)
     
-    # Time-based features: Models love learning hour/month patterns!
+    # Time-based features
     df['hour'] = df['time'].dt.hour
     df['day_of_week'] = df['time'].dt.dayofweek
     df['month'] = df['time'].dt.month
     
-    # Derived features: Calculate rolling averages over the last 6 and 24 hours
+    # Derived features: Calculate rolling averages
     df['pm2_5_roll_6h'] = df['pm2_5'].rolling(window=6, min_periods=1).mean()
     df['pm2_5_roll_24h'] = df['pm2_5'].rolling(window=24, min_periods=1).mean()
     
-    # AQI Change Rate: How fast is PM2.5 rising or falling compared to 3 hours ago?
+    # AQI Change Rate
     df['pm2_5_change_rate'] = df['pm2_5'].pct_change(periods=3).fillna(0.0)
     
-    # THE TARGET: We want to predict what PM2.5 will be 3 Days (72 Hours) into the future
-    # We "shift" the data backwards by 72 rows so today's features align with the future value
+    # THE TARGET: Predict 3 Days (72 Hours) into the future
     df['target_pm2_5'] = df['pm2_5'].shift(-72)
     
-    # Hopsworks requires a string format timestamp or simple ID column as a Primary Key
+    # Standard string timestamp formatting for document indexing
     df['timestamp'] = df['time'].dt.strftime('%Y-%m-%d %H:%M:%S')
     df = df.drop(columns=['time'])
     
-    # Drop rows where target is missing (this happens at the very end of our dataset due to the 72h shift)
+    # Drop rows where target is missing
     df = df.dropna(subset=['target_pm2_5'])
     return df
 
 
-def upload_to_hopsworks(df):
-    """Step 3: Connect to Hopsworks and save our data table"""
-    print("🔒 Logging into Hopsworks Store...")
-    project = hopsworks.login(
-        host="eu-west.cloud.hopsworks.ai",
-        port=443,
-        project="Karachi_Weather_Forecast"
-    )
-    fs = project.get_feature_store()
+def upload_to_mongodb(df):
+    """Step 3: Connect to MongoDB and bulk upsert records safely"""
+    print("🔒 Connecting to MongoDB Atlas cluster...")
+    if not MONGO_URI or "PASTE_YOUR_LOCAL" in MONGO_URI:
+        raise ValueError("Error: MongoDB connection URI is missing or misconfigured.")
+        
+    client = MongoClient(MONGO_URI)
+    db = client["Karachi_Weather_Forecast"]
+    collection = db["karachi_aqi_features"]
     
-    print("📦 Creating/Updating Feature Group in the cloud...")
-    aqi_fg = fs.get_or_create_feature_group(
-        name="karachi_aqi_features",
-        version=1,
-        primary_key=['timestamp'],
-        description="Hourly engineered air quality variables for Karachi",
-        online_enabled=True
-    )
+    # Convert dataframe to a list of dictionary documents
+    records = df.to_dict(orient="records")
+    print(f"📦 Preparing to process {len(records)} entries...")
     
-    # Upload the dataframe. write_options={"wait_for_job": False} lets GitHub finish 
-    # instantly while Hopsworks runs its background ingestion Spark job asynchronously.
-    aqi_fg.insert(df, write_options={"wait_for_job": False})
-    print("🎉 Feature Pipeline Successful! Check your Hopsworks UI dashboard.")
+    # Create bulk upsert operations (updates if timestamp exists, inserts if new)
+    operations = [
+        UpdateOne({"timestamp": record["timestamp"]}, {"$set": record}, upsert=True)
+        for record in records
+    ]
+    
+    if operations:
+        result = collection.bulk_write(operations)
+        print(f"🎉 MongoDB Pipeline Successful!")
+        print(f"   - Upserted/Updated: {result.upserted_count + result.modified_count} records.")
+    else:
+        print("⏸️ No new operations to process.")
+        
+    client.close()
 
 
 if __name__ == "__main__":
@@ -101,4 +103,4 @@ if __name__ == "__main__":
     
     raw_dataframe = fetch_raw_data(start, end)
     processed_dataframe = engineer_features(raw_dataframe)
-    upload_to_hopsworks(processed_dataframe)
+    upload_to_mongodb(processed_dataframe)
