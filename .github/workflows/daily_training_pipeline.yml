@@ -1,0 +1,31 @@
+name: Daily Model Training Pipeline
+
+on:
+  schedule:
+    # Runs once every day at midnight (UTC)
+    - cron: '0 0 * * *'
+  workflow_dispatch: # Allows manual override button triggers
+
+jobs:
+  run-training:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Code Repository
+      uses: actions/checkout@v3
+
+    - name: Set Up Python Engine
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+
+    - name: Install Machine Learning Libraries
+      run: |
+        python -m pip install --upgrade pip
+        pip install pandas numpy scikit-learn joblib hopsworks==4.7.*
+
+    - name: Execute Model Experimentation and Selection
+      env:
+        HOPSWORKS_API_KEY: ${{ secrets.HOPSWORKS_API_KEY }}
+      run: python train_pipeline.py

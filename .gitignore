@@ -1,0 +1,3 @@
+venv/
+aqi_model.pkl
+__pycache__/
