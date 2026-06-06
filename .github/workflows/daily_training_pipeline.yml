@@ -29,7 +29,7 @@ jobs:
     - name: Execute Training Pipeline Script
       env:
         MONGO_URI: ${{ secrets.MONGO_URI }}
-      run: python training_pipeline.py
+      run: python train_pipeline.py
 
     - name: Commit and Push Updated Champion Model
       run: |
