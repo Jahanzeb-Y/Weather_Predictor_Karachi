@@ -2,9 +2,8 @@ name: Hourly AQI Feature Pipeline
 
 on:
   schedule:
-    # Runs exactly at the start of every hour (UTC)
     - cron: '0 * * * *'
-  workflow_dispatch: # Allows you to trigger it manually via the GitHub UI
+  workflow_dispatch: 
 
 jobs:
   run-pipeline:
@@ -12,18 +11,19 @@ jobs:
 
     steps:
     - name: Checkout Code Repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4 
 
     - name: Set Up Python Engine
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5 
       with:
-        python-version: '3.11'
-        cache: 'pip'
+        python-version: '3.11.5' 
+        cache: 'pip'             
+        cache-dependency-path: 'requirements.txt'
 
-    - name: Install Libraries
+    - name: Install Libraries From Requirements
       run: |
         python -m pip install --upgrade pip
-        pip install pandas requests hopsworks==4.7.*
+        pip install -r requirements.txt
 
     - name: Execute Feature Pipeline Script
       env:

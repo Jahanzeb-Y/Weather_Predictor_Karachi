@@ -2,9 +2,8 @@ name: Daily Model Training Pipeline
 
 on:
   schedule:
-    # Runs once every day at midnight (UTC)
     - cron: '0 0 * * *'
-  workflow_dispatch: # Allows manual override button triggers
+  workflow_dispatch: 
 
 jobs:
   run-training:
@@ -12,18 +11,19 @@ jobs:
 
     steps:
     - name: Checkout Code Repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4 
 
     - name: Set Up Python Engine
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5 
       with:
-        python-version: '3.11'
-        cache: 'pip'
+        python-version: '3.11.5' 
+        cache: 'pip'            
+        cache-dependency-path: 'requirements.txt'
 
     - name: Install Machine Learning Libraries
       run: |
         python -m pip install --upgrade pip
-        pip install pandas numpy scikit-learn joblib hopsworks==4.7.*
+        pip install -r requirements.txt
 
     - name: Execute Model Experimentation and Selection
       env:
