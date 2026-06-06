@@ -9,13 +9,13 @@ from sklearn.linear_model import Ridge
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 
 # --- CONFIGURATION ---
-# We use your live MongoDB link string directly for seamless execution
-MONGO_URI = os.getenv("MONGO_URI", "mongodb+srv://JahanzebYameen:<10603770569>@karachiaqifeatures.cmueb2n.mongodb.net/?appName=KarachiAQIFeatures")
+# Your live production MongoDB cluster link layout
+MONGO_URI = os.getenv("MONGO_URI", "mongodb+srv://JahanzebYameen:10603770569@karachiaqifeatures.cmueb2n.mongodb.net/?appName=KarachiAQIFeatures")
 
 def run_model_experimentation():
     print("🔒 Connecting to MongoDB Atlas Cluster...")
-    if not MONGO_URI or "cluster0.xxxx" in MONGO_URI:
-        raise ValueError("Error: MongoDB connection URI is missing or misconfigured.")
+    if not MONGO_URI:
+        raise ValueError("Error: MongoDB connection URI is completely missing.")
         
     client = MongoClient(MONGO_URI)
     db = client["Karachi_Weather_Forecast"]
@@ -37,6 +37,10 @@ def run_model_experimentation():
     
     # Clean features and isolate target matrix splits
     X = df.drop(columns=['target_pm2_5', 'timestamp'])
+    
+    # 🔥 FORCE EXACT ALPHABETICAL COLUMN ORDERING FOR MODEL TRAINING
+    X = X.reindex(sorted(X.columns), axis=1)
+    
     y = df['target_pm2_5']
     
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)

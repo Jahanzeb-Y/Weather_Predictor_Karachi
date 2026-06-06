@@ -6,7 +6,7 @@ from pymongo import MongoClient, UpdateOne
 
 # --- CONFIGURATION ---
 # We will pull this securely from GitHub Secrets in production
-MONGO_URI = os.getenv("MONGO_URI", "mongodb+srv://JahanzebYameen:<10603770569>@karachiaqifeatures.cmueb2n.mongodb.net/?appName=KarachiAQIFeatures")
+MONGO_URI = os.getenv("MONGO_URI", "mongodb+srv://JahanzebYameen:10603770569@karachiaqifeatures.cmueb2n.mongodb.net/?appName=KarachiAQIFeatures")
 
 # Karachi coordinates
 LATITUDE = 24.8607

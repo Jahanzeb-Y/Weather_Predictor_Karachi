@@ -9,11 +9,19 @@ import numpy as np
 from datetime import datetime
 
 # --- CONFIGURATION & MONGO URI SELECTION ---
-# Checks Streamlit Secrets first (for cloud hosting), then drops back to local environment variables
-if "MONGO_URI" in st.secrets:
-    MONGO_URI = st.secrets["MONGO_URI"]
-else:
-    MONGO_URI = os.getenv("MONGO_URI", "mongodb+srv://JahanzebYameen:<10603770569>@karachiaqifeatures.cmueb2n.mongodb.net/?appName=KarachiAQIFeatures")
+MONGO_URI = None
+
+# 1. First, check if we are on the Streamlit Cloud server using secrets
+try:
+    if "MONGO_URI" in st.secrets:
+        MONGO_URI = st.secrets["MONGO_URI"]
+except Exception:
+    # If st.secrets throws an error because the file doesn't exist locally, pass safely
+    pass
+
+# 2. If we are running locally, fall back to environment variables or hardcoded link string
+if not MONGO_URI:
+    MONGO_URI = os.getenv("MONGO_URI", "mongodb+srv://JahanzebYameen:10603770569@karachiaqifeatures.cmueb2n.mongodb.net/?appName=KarachiAQIFeatures")
 
 st.set_page_config(page_title="Karachi 3-Day AQI Predictor", layout="wide")
 
@@ -74,6 +82,9 @@ try:
         'pm2_5_roll_24h': live_df['pm2_5'].iloc[-24:].mean(),
         'pm2_5_change_rate': float((live_df['pm2_5'].iloc[-1] - live_df['pm2_5'].iloc[-4]) / (live_df['pm2_5'].iloc[-4] + 1e-5))
     }])
+    
+    # 🔥 FORCE EXACT SAME ALPHABETICAL COLUMN ORDERING FOR INFERENCE
+    inference_payload = inference_payload.reindex(sorted(inference_payload.columns), axis=1)
     
     # Run the model!
     predicted_pm25 = model.predict(inference_payload)[0]
