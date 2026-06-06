@@ -2,20 +2,23 @@ import os
 import requests
 import pandas as pd
 import streamlit as st
-import hopsworks
 import joblib
 import shap
 import matplotlib.pyplot as plt
 import numpy as np
 from datetime import datetime
 
-# --- CONFIGURATION ---
-os.environ["HOPSWORKS_API_KEY"] = "nqwhi0tLZlZzJQpq.jQ0OUyguCdCUbb11UoH4HA8qHmJmXyna27JEPJwJcszSet2W5GNRRopC7WpQZGSz"
+# --- CONFIGURATION & MONGO URI SELECTION ---
+# Checks Streamlit Secrets first (for cloud hosting), then drops back to local environment variables
+if "MONGO_URI" in st.secrets:
+    MONGO_URI = st.secrets["MONGO_URI"]
+else:
+    MONGO_URI = os.getenv("MONGO_URI", "mongodb+srv://JahanzebYameen:<10603770569>@karachiaqifeatures.cmueb2n.mongodb.net/?appName=KarachiAQIFeatures")
 
 st.set_page_config(page_title="Karachi 3-Day AQI Predictor", layout="wide")
 
 st.markdown("# 🇵🇰 Karachi Serverless 3-Day AQI Forecast Engine")
-st.markdown("This dashboard pulls live weather metrics, passes them into your trained AI model via Hopsworks, and predicts the air quality index 3 days into the future.")
+st.markdown("This dashboard pulls live weather metrics, passes them into your locally stored trained AI model, and predicts the air quality index 3 days into the future.")
 st.markdown("---")
 
 # 1. Fetch Live, Real-Time Weather Conditions from Open-Meteo
@@ -41,26 +44,20 @@ col5.metric("Live Ozone", f"{cur_ozone} µg/m³")
 
 st.markdown("---")
 
-# 2. Download Model and Make Predictions
+# 2. Load Local Version-Controlled Model and Make Predictions
 st.subheader("🔮 3-Day Lookahead Prediction")
 
 @st.cache_resource
-def download_ai_model():
-    project = hopsworks.login(
-        host="eu-west.cloud.hopsworks.ai",
-        port=443,
-        api_key_value=os.environ["HOPSWORKS_API_KEY"],
-        project="Karachi_Weather_Forecast"
-    )
-    mr = project.get_model_registry()
-    model_meta = mr.get_model("aqi_prediction_model", version=2) # Using version 2 (with the updated metadata)
-    model_dir = model_meta.download()
-    loaded_model = joblib.load(f"{model_dir}/aqi_model.pkl")
-    return loaded_model
+def load_local_ai_model():
+    """Loads the trained machine learning model artifact stored in the workspace."""
+    model_filename = "aqi_model.pkl"
+    if not os.path.exists(model_filename):
+        raise FileNotFoundError(f"Could not find model artifact: '{model_filename}'. Run training_pipeline.py first to generate it.")
+    return joblib.load(model_filename)
 
 try:
-    with st.spinner("Downloading trained AI model parameters from Hopsworks Cloud Registry..."):
-        model = download_ai_model()
+    with st.spinner("Loading trained AI model parameters from workspace repository..."):
+        model = load_local_ai_model()
     
     # 3. Engineer our runtime input payload to match what the model learned during training
     now = datetime.now()
@@ -93,7 +90,7 @@ try:
 
     st.markdown("---")
     
-    # NEW FEATURE: 📉 Advanced Analytics & Model Interpretability (SHAP)
+    # 4. 📉 Advanced Analytics & Model Interpretability (SHAP)
     st.subheader("📊 Advanced Analytics: Feature Importance (SHAP)")
     st.markdown("This section calculates which weather features and indicators matter most to the AI model's forecast computations.")
     
@@ -106,7 +103,6 @@ try:
         fig, ax = plt.subplots(figsize=(10, 4))
         
         # We look at index 0 because we're evaluating a single input row (current live data)
-        # If it's a multi-output or tree array wrapper, grab the standard matrix list
         if isinstance(shap_values, list):
             vals = np.abs(shap_values[0])
         else:

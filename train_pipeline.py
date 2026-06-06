@@ -1,30 +1,39 @@
 import os
-import hopsworks
 import joblib
 import pandas as pd
 import numpy as np
+from pymongo import MongoClient
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import Ridge
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 
 # --- CONFIGURATION ---
-os.environ["HOPSWORKS_API_KEY"] = "nqwhi0tLZlZzJQpq.jQ0OUyguCdCUbb11UoH4HA8qHmJmXyna27JEPJwJcszSet2W5GNRRopC7WpQZGSz"
+# We use your live MongoDB link string directly for seamless execution
+MONGO_URI = os.getenv("MONGO_URI", "mongodb+srv://JahanzebYameen:<10603770569>@karachiaqifeatures.cmueb2n.mongodb.net/?appName=KarachiAQIFeatures")
 
 def run_model_experimentation():
-    print("🔒 Logging into Hopsworks Store...")
-    project = hopsworks.login(
-        host="eu-west.cloud.hopsworks.ai",
-        port=443,
-        api_key_value=os.environ["HOPSWORKS_API_KEY"],
-        project="Karachi_Weather_Forecast"
-    )
-    fs = project.get_feature_store()
+    print("🔒 Connecting to MongoDB Atlas Cluster...")
+    if not MONGO_URI or "cluster0.xxxx" in MONGO_URI:
+        raise ValueError("Error: MongoDB connection URI is missing or misconfigured.")
+        
+    client = MongoClient(MONGO_URI)
+    db = client["Karachi_Weather_Forecast"]
+    collection = db["karachi_aqi_features"]
     
-    # 1. Pull features directly from our cloud storage table
-    print("📥 Fetching engineered air quality records from the cloud...")
-    aqi_fg = fs.get_feature_group(name="karachi_aqi_features", version=1)
-    df = aqi_fg.read()
+    # 1. Pull features directly from our MongoDB collection
+    print("📥 Fetching engineered air quality records from MongoDB...")
+    cursor = collection.find({})
+    df = pd.DataFrame(list(cursor))
+    
+    if df.empty:
+        raise Exception("Database is empty! Run your feature pipeline script first to backfill data.")
+        
+    # Clean up MongoDB internal document ObjectIDs if present
+    if '_id' in df.columns:
+        df = df.drop(columns=['_id'])
+    
+    print(f"📊 Loaded {len(df)} records. Proceeding to matrix splits...")
     
     # Clean features and isolate target matrix splits
     X = df.drop(columns=['target_pm2_5', 'timestamp'])
@@ -54,34 +63,31 @@ def run_model_experimentation():
     ridge_r2 = float(r2_score(y_test, ridge_preds))
     print(f"📊 Ridge Regression -> RMSE: {ridge_rmse:.2f} | MAE: {ridge_mae:.2f} | R²: {ridge_r2:.2f}")
     
-# 4. Champion Selection Strategy (Lower RMSE Wins!)
+    # 4. Champion Selection Strategy (Lower RMSE Wins!)
     print("\n🏆 Evaluating Champion Performance...")
     if rf_rmse < ridge_rmse:
         print("🥇 Winner: Random Forest Regressor!")
         champion_model = rf_model
-        best_metrics = {"rmse": rf_rmse, "mae": rf_mae, "r2": rf_r2} # <-- Strictly numbers!
         chosen_algo = "Random Forest"
     else:
         print("🥇 Winner: Ridge Regression Model!")
         champion_model = ridge_model
-        best_metrics = {"rmse": ridge_rmse, "mae": ridge_mae, "r2": ridge_r2} # <-- Strictly numbers!
         chosen_algo = "Ridge Regression"
         
     # 5. Save the winning binary locally
     model_filename = "aqi_model.pkl"
     joblib.dump(champion_model, model_filename)
+    print(f"💾 Model artifact saved successfully as: {model_filename}")
     
-    # 6. Push the optimized artifact down to Hopsworks Model Registry
-    print("🚀 Uploading Champion Model to Hopsworks Cloud Registry...")
-    mr = project.get_model_registry()
-    
-    hopsworks_model = mr.python.create_model(
-        name="aqi_prediction_model",
-        metrics=best_metrics, # Pass the clean numeric values dictionary
-        description=f"Top-performing algorithm ({chosen_algo}) for Karachi 3-Day PM2.5 forecasting." # Text goes safely here!
-    )
-    hopsworks_model.save(model_filename)
-    print("🎉 Experimentation Complete! Champion model is securely stored.")
+    # 6. Save a text summary file documenting performance metrics
+    with open("model_metrics.txt", "w") as f:
+        f.write(f"Algorithm: {chosen_algo}\n")
+        f.write(f"Updated: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+        f.write(f"RMSE: {min(rf_rmse, ridge_rmse):.4f}\n")
+        f.write(f"R2 Score: {rf_r2 if rf_rmse < ridge_rmse else ridge_r2:.4f}\n")
+        
+    client.close()
+    print("🎉 Experimentation Complete! Champion model is securely updated locally.")
 
 if __name__ == "__main__":
     run_model_experimentation()

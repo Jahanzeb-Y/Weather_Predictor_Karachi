@@ -2,7 +2,8 @@ name: Daily Model Training Pipeline
 
 on:
   schedule:
-    - cron: '0 0 * * *'
+    # Runs at 12:34 AM every night to avoid midnight server traffic spikes
+    - cron: '34 0 * * *'
   workflow_dispatch: 
 
 jobs:
@@ -25,7 +26,16 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
 
-    - name: Execute Feature Pipeline Script
+    - name: Execute Training Pipeline Script
       env:
         MONGO_URI: ${{ secrets.MONGO_URI }}
-      run: python feature_pipeline.py
+      run: python training_pipeline.py
+
+    - name: Commit and Push Updated Champion Model
+      run: |
+        git config --global user.name "GitHub Actions Bot"
+        git config --global user.email "actions@github.com"
+        git add aqi_model.pkl model_metrics.txt
+        # Only commits if the newly trained model actually differs from the old one
+        git diff-index --quiet HEAD || git commit -m "Auto-update: trained champion model file via daily pipeline execution"
+        git push origin main
