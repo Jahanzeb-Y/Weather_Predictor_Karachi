@@ -88,16 +88,16 @@ def upload_to_hopsworks(df):
         online_enabled=True
     )
     
-    # Upload the dataframe
-    aqi_fg.insert(df)
+    # Upload the dataframe. write_options={"wait_for_job": False} lets GitHub finish 
+    # instantly while Hopsworks runs its background ingestion Spark job asynchronously.
+    aqi_fg.insert(df, write_options={"wait_for_job": False})
     print("🎉 Feature Pipeline Successful! Check your Hopsworks UI dashboard.")
 
 
 if __name__ == "__main__":
-    # For your first run, let's backfill data from last year up to today
-    # to give your ML model plenty of historical examples to learn from!
-    start = "2025-01-01"
+    # Dynamically calculate a moving 3-month (90 days) lookback timeline window
     end = datetime.now().strftime("%Y-%m-%d")
+    start = (datetime.now() - timedelta(days=90)).strftime("%Y-%m-%d")
     
     raw_dataframe = fetch_raw_data(start, end)
     processed_dataframe = engineer_features(raw_dataframe)
