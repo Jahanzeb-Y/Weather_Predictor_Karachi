@@ -64,12 +64,10 @@ convert_vectorized = np.vectorize(convert_pm25_to_us_aqi)
 def get_mongo_collection():
     return MongoClient(MONGO_URI)["Karachi_Weather_Forecast"]["karachi_aqi_features"]
 
-# --- DATA INGESTION & PIPELINE ---
 try:
     collection = get_mongo_collection()
     current_utc_str = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
     
-    # Cleaned Optimization: Unified single historical fallback match strategy
     latest_record = list(collection.find({"timestamp": {"$lte": current_utc_str}}).sort("timestamp", -1).limit(1))
     if not latest_record:
         latest_record = list(collection.find().sort("timestamp", -1).limit(1))
@@ -195,7 +193,7 @@ try:
         st.error(f"🚨 **Air Quality Level: Unhealthy Environment Alert ({predicted_aqi_score} US AQI)** — Predicted air quality in 72 hours is dangerous")
 
     st.markdown("---")
-    st.subheader("Model Metrics")
+    st.subheader("Model Feature Importance")
     with st.spinner("Compiling model evaluations..."):
         try:
             background_df = pd.DataFrame([latest_record])[feature_columns]
@@ -241,6 +239,47 @@ try:
             ax.set_xlabel(f'Impact Score on 3-Day Prediction ({selected_model_type})')
             plt.tight_layout()
             st.pyplot(fig_shap)
+            
+            st.markdown("---")
+            col_m_title, col_m_badge = st.columns([3, 1])
+            with col_m_title:
+                st.subheader("Pipeline metrics")
+                st.markdown(f"performance metrics for `{selected_model_type}`.")
+            with col_m_badge:
+                st.markdown("<div style='text-align: right; padding-top: 15px;'><span style='background-color: #1e2127; padding: 6px 12px; border-radius: 4px; font-size: 0.85rem; border: 1px solid #4CAF50; color: #4CAF50;'>Leader: XGBoost Engine</span></div>", unsafe_allow_html=True)
+
+            metrics_db = {
+                "Random Forest": {"RMSE": 6.4145, "MAE": 4.4829, "R2": 0.5337},
+                "XGBoost": {"RMSE": 5.9681, "MAE": 4.2454, "R2": 0.5963},
+                "Ridge Linear Regression": {"RMSE": 9.3212, "MAE": 6.9137, "R2": 0.0153}
+            }
+
+            current_metrics = metrics_db[selected_model_type]
+
+            m1, m2, m3 = st.columns(3)
+            m1.metric(
+                label="Root Mean Squared Error (RMSE)", 
+                value=f"{current_metrics['RMSE']:.4f}", 
+                delta="Lower is better", 
+                delta_color="inverse"
+            )
+            m2.metric(
+                label="R-Squared Score (R²)", 
+                value=f"{current_metrics['R2']:.4f}", 
+                delta="Higher is better", 
+                delta_color="normal"
+            )
+            m3.metric(
+                label="Mean Absolute Error (MAE)", 
+                value=f"{current_metrics['MAE']:.4f}", 
+                delta="Average scale error", 
+                delta_color="off"
+            )
+
+            with st.expander(" All models"):
+                comparison_df = pd.DataFrame.from_dict(metrics_db, orient='index')
+                comparison_df.columns = ['RMSE', 'MAE', 'R² Accuracy Score']
+                st.table(comparison_df)
             
         except Exception as shap_err:
             print(f"❌ Internal SHAP Logging Error: {shap_err}")
