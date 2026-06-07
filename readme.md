@@ -25,30 +25,29 @@ The application runs a continuous end-to-end data processing and inference lifec
 ---
 
 ## Pipeline Evaluation Matrix
-Validation performance scores calculated across models from historical training partitions:
-Forecasting Framework 
-1: RMSE (Error)
-2: MAE (Error)
-3: R² Accuracy Score
+Validation performance scores calculated across models:
+1. RMSE (Error)
+2. MAE (Error)
+3. R² Accuracy Score
 
 ---
 
 ## Repository Directory Tree
-aqi_forecaster/
-app.py                  # Streamlit Dashboard 
-train_pipeline.py       # Training Routine
-requirements.txt        # Environment Package
-model_metrics.txt       # Metric Execution Logs
-.gitignore              # Security Exclusions
-aqi_model_xgb.pkl       # XGBoost Model
-aqi_model_rf.pkl        # Random Forest Model
-aqi_model_ridge.pkl     # Ridge Linear Regression
+0. aqi_forecaster/
+1. app.py                  # Streamlit Dashboard 
+2. train_pipeline.py       # Training Routine
+3. requirements.txt        # Environment Package
+4. model_metrics.txt       # Metric Execution Logs
+5. .gitignore              # Security Exclusions
+6. aqi_model_xgb.pkl       # XGBoost Model
+7. aqi_model_rf.pkl        # Random Forest Model
+8. aqi_model_ridge.pkl     # Ridge Linear Regression
 
 # Setup & Installation
 1. Clone the Repository
 git clone [https://github.com/Jahanzeb-Y/Weather_Predictor_Karachi.git](https://github.com/Jahanzeb-Y/Weather_Predictor_Karachi.git)
 
-cd Weather_Predictor_Karachi
+   cd Weather_Predictor_Karachi
 
 2. Create Virtual Environment
 python -m venv venv
