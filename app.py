@@ -88,7 +88,7 @@ try:
     record_time = datetime.strptime(db_timestamp, '%Y-%m-%d %H:%M:%S') + timedelta(hours=5)
 
     mongo_records = list(collection.find({"timestamp": {"$lte": db_timestamp}}).sort("timestamp", -1).limit(24))
-    live_df = pd.DataFrame(mongo_records[::-1]) # Cleaned Optimization: Slice reversion syntax is faster than list.reverse()
+    live_df = pd.DataFrame(mongo_records[::-1])
 
 except Exception as db_err:
     st.error(f"Error accessing production database states: {db_err}")
@@ -104,7 +104,7 @@ def load_local_ai_model(model_selection):
     filename = f"aqi_model_{suffix_mapping[model_selection]}.pkl"
     
     if model_selection == "Random Forest" and not os.path.exists(filename):
-        filename = "aqi_model.pkl" # Transparent baseline migration check
+        filename = "aqi_model.pkl"
         
     if not os.path.exists(filename):
         raise FileNotFoundError(f"Missing model artifact file: '{filename}'")
@@ -137,24 +137,27 @@ try:
         if score <= 150: return "🟠 Sensitive Warning"
         return "🚨 Unhealthy"
 
+    future_dates = [record_time + timedelta(hours=i) for i in range(1, 73)]
+    np.random.seed(42)
+    noise = np.random.normal(0, 1.5, 72)
+    final_forecast_series_pm25 = np.clip(np.linspace(cur_pm25, predicted_pm25, 72) + noise, a_min=0, a_max=None)
+    future_forecast_aqi = convert_vectorized(final_forecast_series_pm25)
+    
+    # Extract the 24th index element to represent exactly 1 day (24 hours) out
+    tomorrow_aqi_prediction = int(future_forecast_aqi[23])
+
     st.subheader("📡 Real-Time Environmental Telemetry")
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Current Air Index", f"{current_aqi_score} US AQI", delta=get_aqi_descriptor(current_aqi_score))
     c2.metric("Fine Mass (PM2.5)", f"{cur_pm25:.1f} µg/m³", delta="Raw Concentration", delta_color="off")
     c3.metric("Dust & Smoke (PM10)", f"{cur_pm10:.1f} µg/m³", delta="Coarse Particulates", delta_color="off")
-    c4.metric("Last Data Ingestion", record_time.strftime('%I:%M %p'), delta=record_time.strftime('%b %d, %Y'), delta_color="off")
+    c4.metric("Tomorrow's Air Index", f"{tomorrow_aqi_prediction} US AQI", delta=get_aqi_descriptor(tomorrow_aqi_prediction))
     st.markdown("<br>", unsafe_allow_html=True)
 
     st.markdown(f"**72-Hour Forecast Trajectory Engine:** Evaluating via `{selected_model_type}`")
     
-    future_dates = [record_time + timedelta(hours=i) for i in range(1, 73)]
-    np.random.seed(42)
-    noise = np.random.normal(0, 1.5, 72)
-    final_forecast_series_pm25 = np.clip(np.linspace(cur_pm25, predicted_pm25, 72) + noise, a_min=0, a_max=None)
-    
     historical_subset_pm25 = live_df['pm2_5'].iloc[-24:]
     historical_subset_aqi = convert_vectorized(historical_subset_pm25)
-    future_forecast_aqi = convert_vectorized(final_forecast_series_pm25)
     
     fig = go.Figure()
     hist_hours = len(historical_subset_aqi)
