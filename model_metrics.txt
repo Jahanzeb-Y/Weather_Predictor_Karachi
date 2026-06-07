@@ -1,4 +1,6 @@
-Algorithm: Random Forest
-Updated: 2026-06-07 17:12:14
-RMSE: 6.4145
-R2 Score: 0.5337
+Pipeline Evaluation Summary
+Updated: 2026-06-07 18:38:50
+Random Forest  -> RMSE: 6.4145 | MAE: 4.4829 | R2: 0.5337
+XGBoost Engine -> RMSE: 5.9681 | MAE: 4.2454 | R2: 0.5963
+Ridge Linear   -> RMSE: 9.3212 | MAE: 6.9137 | R2: 0.0153
+Current Deployment Leader: XGBoost
