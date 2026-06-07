@@ -282,8 +282,8 @@ try:
                 st.table(comparison_df)
             
         except Exception as shap_err:
-            print(f"❌ Internal SHAP Logging Error: {shap_err}")
-            st.info("💡 *SHAP parsed for active records.*")
+            print(f"Internal SHAP Logging Error: {shap_err}")
+            st.info("SHAP parsed for active records.")
 
 except Exception as e:
     st.error(f"System compilation runtime exception: {e}")
