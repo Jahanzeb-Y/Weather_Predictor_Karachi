@@ -1,5 +1,4 @@
 import os
-import requests
 import pandas as pd
 import streamlit as st
 import joblib
@@ -21,7 +20,6 @@ if not MONGO_URI:
     MONGO_URI = os.getenv("MONGO_URI", "mongodb+srv://JahanzebYameen:10603770569@karachiaqifeatures.cmueb2n.mongodb.net/?appName=KarachiAQIFeatures")
 
 st.set_page_config(page_title="Karachi 3-Day AQI Predictor", layout="wide", page_icon="🌍")
-
 
 st.markdown("""
 <style>
@@ -48,7 +46,7 @@ with col_t1:
     st.title("Karachi AQI Prediction Engine by Jahanzeb Yameen")
     st.markdown("<p style='font-size: 1.1rem; color: #a0aab2; margin-top: -15px;'>72-Hour Analytics</p>", unsafe_allow_html=True)
 with col_t2:
-    st.markdown("<div style='text-align: right; padding-top: 20px;'><span style='background-color: #2d313a; padding: 8px 15px; border-radius: 20px; font-size: 0.9rem; border: 1px solid #4CAF50; color: #4CAF50;'>🟢 Active Syncing</span></div>", unsafe_allow_html=True)
+    st.markdown("<div style='text-align: right; padding-top: 20px;'><span style='background-color: #2d313a; padding: 8px 15px; border-radius: 20px; font-size: 0.9rem; border: 1px solid #4CAF50; color: #4CAF50;'>🟢 DB Single-Source Active</span></div>", unsafe_allow_html=True)
 st.markdown("---")
 
 
@@ -73,53 +71,37 @@ convert_vectorized = np.vectorize(convert_pm25_to_us_aqi)
 @st.cache_resource
 def get_mongo_collection():
     client = MongoClient(MONGO_URI)
-    db = client["KarachiAQI"]  
-    collection = db["hourly_features"]  
+    db = client["Karachi_Weather_Forecast"]  
+    collection = db["karachi_aqi_features"]  
     return collection
-
-# 1. Fetch Live API Weather
-live_url = "https://air-quality-api.open-meteo.com/v1/air-quality?latitude=24.8607&longitude=67.0011&hourly=pm2_5,pm10,nitrogen_dioxide,sulphur_dioxide,ozone"
-
-try:
-    response = requests.get(live_url).json()['hourly']
-    api_map = {
-        'pm2_5': response['pm2_5'],
-        'pm10': response['pm10'],
-        'nitrogen_dioxide': response['nitrogen_dioxide'],
-        'sulphur_dioxide': response['sulphur_dioxide'],
-        'ozone': response['ozone']
-    }
-    live_df = pd.DataFrame(api_map)
-    live_df = live_df.dropna().reset_index(drop=True)
-
-    cur_pm25 = float(live_df['pm2_5'].iloc[-1])
-    cur_pm10 = float(live_df['pm10'].iloc[-1])
-    cur_no2 = float(live_df['nitrogen_dioxide'].iloc[-1])
-    cur_so2 = float(live_df['sulphur_dioxide'].iloc[-1])
-    cur_ozone = float(live_df['ozone'].iloc[-1])
-
-except Exception as api_err:
-    st.error(f"Error accessing API parameters: {api_err}")
-    cur_pm25, cur_pm10, cur_no2, cur_so2, cur_ozone = 30.0, 45.0, 15.0, 5.0, 20.0
 
 try:
     collection = get_mongo_collection()
-    mongo_records = list(collection.find().sort("timestamp", -1).limit(24))
     
-    if len(mongo_records) >= 6:
-        hist_df = pd.DataFrame(mongo_records)
-        pm25_roll_6h = float(hist_df['pm2_5'].iloc[:6].mean())
-        pm25_roll_24h = float(hist_df['pm2_5'].iloc[:len(hist_df)].mean())
-        pm25_change_rate = float((hist_df['pm2_5'].iloc[0] - hist_df['pm2_5'].iloc[3]) / (hist_df['pm2_5'].iloc[3] + 1e-5))
-    else:
-        pm25_roll_6h = float(live_df['pm2_5'].iloc[-6:].mean())
-        pm25_roll_24h = float(live_df['pm2_5'].iloc[-24:].mean())
-        pm25_change_rate = float((live_df['pm2_5'].iloc[-1] - live_df['pm2_5'].iloc[-4]) / (live_df['pm2_5'].iloc[-4] + 1e-5))
-        
-except Exception:
-    pm25_roll_6h = float(live_df['pm2_5'].iloc[-6:].mean())
-    pm25_roll_24h = float(live_df['pm2_5'].iloc[-24:].mean())
-    pm25_change_rate = float((live_df['pm2_5'].iloc[-1] - live_df['pm2_5'].iloc[-4]) / (live_df['pm2_5'].iloc[-4] + 1e-5))
+    latest_record = list(collection.find().sort("timestamp", -1).limit(1))[0]
+    
+    cur_pm25 = float(latest_record['pm2_5'])
+    cur_pm10 = float(latest_record['pm10'])
+    cur_no2 = float(latest_record['nitrogen_dioxide'])
+    cur_so2 = float(latest_record['sulphur_dioxide'])
+    cur_ozone = float(latest_record['ozone'])
+    
+    pm25_roll_6h = float(latest_record['pm2_5_roll_6h'])
+    pm25_roll_24h = float(latest_record['pm2_5_roll_24h'])
+    pm25_change_rate = float(latest_record['pm2_5_change_rate'])
+    
+    record_time = datetime.strptime(latest_record['timestamp'], '%Y-%m-%d %H:%M:%S')
+
+    mongo_records = list(collection.find().sort("timestamp", -1).limit(24))
+    mongo_records.reverse()  # Chronological order
+    live_df = pd.DataFrame(mongo_records)
+
+except Exception as db_err:
+    st.error(f"Error accessing production database states: {db_err}")
+    cur_pm25, cur_pm10, cur_no2, cur_so2, cur_ozone = 30.0, 45.0, 15.0, 5.0, 20.0
+    pm25_roll_6h, pm25_roll_24h, pm25_change_rate = 30.0, 30.0, 0.0
+    record_time = datetime.now()
+    live_df = pd.DataFrame([{"timestamp": record_time.strftime('%Y-%m-%d %H:%M:%S'), "pm2_5": 30.0}])
 
 @st.cache_resource
 def load_local_ai_model():
@@ -130,7 +112,6 @@ def load_local_ai_model():
 
 try:
     model = load_local_ai_model()
-    now = datetime.now()
     
     inference_payload = pd.DataFrame([{
         'pm2_5': cur_pm25,
@@ -138,9 +119,9 @@ try:
         'nitrogen_dioxide': cur_no2,
         'sulphur_dioxide': cur_so2,
         'ozone': cur_ozone,
-        'hour': now.hour,
-        'day_of_week': now.weekday(),
-        'month': now.month,
+        'hour': record_time.hour,
+        'day_of_week': record_time.weekday(),
+        'month': record_time.month,
         'pm2_5_roll_6h': pm25_roll_6h,
         'pm2_5_roll_24h': pm25_roll_24h,
         'pm2_5_change_rate': pm25_change_rate
@@ -157,20 +138,17 @@ try:
         if score <= 150: return "🟠 Sensitive Warning"
         return "🚨 Unhealthy"
 
-
     st.subheader("📡 Real-Time Environmental Telemetry")
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Current Air Index", f"{current_aqi_score} US AQI", delta=get_aqi_descriptor(current_aqi_score), delta_color="normal")
     c2.metric("Fine Mass (PM2.5)", f"{cur_pm25:.1f} µg/m³", delta="Raw Concentration", delta_color="off")
     c3.metric("Dust & Smoke (PM10)", f"{cur_pm10:.1f} µg/m³", delta="Coarse Particulates", delta_color="off")
-    c4.metric("Last Dashboard Sync", now.strftime('%H:%M %p'), delta=now.strftime('%b %d, %Y'), delta_color="off")
+    c4.metric("Last Database Ingestion", record_time.strftime('%H:%M %p'), delta=record_time.strftime('%b %d, %Y'), delta_color="off")
     st.markdown("<br>", unsafe_allow_html=True)
-
 
     st.markdown("72-Hour Forecast Trajectory")
 
-
-    future_dates = [now + timedelta(hours=i) for i in range(1, 73)]
+    future_dates = [record_time + timedelta(hours=i) for i in range(1, 73)]
     
     trend_line = np.linspace(cur_pm25, predicted_pm25, 72)
     np.random.seed(42)
@@ -181,12 +159,10 @@ try:
     historical_subset_aqi = convert_vectorized(historical_subset_pm25)
     future_forecast_aqi = convert_vectorized(final_forecast_series_pm25)
     
-  
     fig = go.Figure()
     
-   
     hist_hours = len(historical_subset_aqi)
-    hist_timestamps = [now - timedelta(hours=hist_hours-i) for i in range(hist_hours)]
+    hist_timestamps = [record_time - timedelta(hours=hist_hours-i) for i in range(hist_hours)]
     fig.add_trace(go.Scatter(
         x=hist_timestamps, 
         y=historical_subset_aqi, 
@@ -197,7 +173,6 @@ try:
         fillcolor='rgba(0, 180, 216, 0.1)'
     ))
     
-   
     forecast_dates = [hist_timestamps[-1]] + future_dates
     forecast_values = [historical_subset_aqi[-1]] + list(future_forecast_aqi)
     fig.add_trace(go.Scatter(
@@ -207,7 +182,6 @@ try:
         name='AI Forecast Horizon (US AQI)', 
         line=dict(color='#ff4b4b', width=3, dash='dash')
     ))
-    
     
     fig.add_hline(y=50, line_dash="dot", line_color="green", annotation_text="Good Threshold (50)", annotation_position="top left")
     fig.add_hline(y=100, line_dash="dot", line_color="orange", annotation_text="Moderate Cap (100)", annotation_position="top left")
@@ -228,7 +202,6 @@ try:
     st.plotly_chart(fig, use_container_width=True)
     st.markdown("<br>", unsafe_allow_html=True)
 
-    
     if predicted_aqi_score <= 50:
         st.success(f"🟢 **Air Quality Level: Good ({predicted_aqi_score} US AQI)** — Predicted air quality in 72 hours is highly safe.")
     elif 50 < predicted_aqi_score <= 100:
