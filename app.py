@@ -23,9 +23,7 @@ if not MONGO_URI:
 
 st.set_page_config(page_title="Karachi 3-Day AQI Predictor", layout="wide", page_icon="🌍")
 
-# ==========================================
-# TAKEAWAY 1: INJECT ADVANCED CSS STYLING
-# ==========================================
+
 st.markdown("""
 <style>
 /* Sleek Dark Metric Cards */
@@ -55,7 +53,27 @@ with col_t2:
     st.markdown("<div style='text-align: right; padding-top: 20px;'><span style='background-color: #2d313a; padding: 8px 15px; border-radius: 20px; font-size: 0.9rem; border: 1px solid #4CAF50; color: #4CAF50;'>🟢 Active Syncing</span></div>", unsafe_allow_html=True)
 st.markdown("---")
 
-# --- MONGODB CONNECTION LAYER ---
+
+def convert_pm25_to_us_aqi(pm25):
+    """Converts raw PM2.5 concentration to official US EPA AQI standard score (0-500)."""
+    # Force float element-wise or scalar
+    val = float(pm25)
+    if val <= 9.0:
+        return int(((50 - 0) / (9.0 - 0.0)) * (val - 0.0) + 0)
+    elif val <= 35.4:
+        return int(((100 - 51) / (35.4 - 9.1)) * (val - 9.1) + 51)
+    elif val <= 55.4:
+        return int(((150 - 101) / (55.4 - 35.5)) * (val - 35.5) + 101)
+    elif val <= 125.4:
+        return int(((200 - 151) / (125.4 - 55.5)) * (val - 55.5) + 151)
+    elif val <= 225.4:
+        return int(((300 - 201) / (225.4 - 125.5)) * (val - 125.5) + 201)
+    else:
+        return int(((500 - 301) / (500.0 - 225.5)) * (val - 225.5) + 301)
+
+# Vectorized variant to run clean mappings across entire pandas columns for our graphs
+convert_vectorized = np.vectorize(convert_pm25_to_us_aqi)
+
 @st.cache_resource
 def get_mongo_collection():
     client = MongoClient(MONGO_URI)
@@ -88,7 +106,6 @@ except Exception as api_err:
     st.error(f"Error accessing API parameters: {api_err}")
     cur_pm25, cur_pm10, cur_no2, cur_so2, cur_ozone = 30.0, 45.0, 15.0, 5.0, 20.0
 
-# 2. Fetch Historical Database Context for Rolling Calculations
 try:
     collection = get_mongo_collection()
     mongo_records = list(collection.find().sort("timestamp", -1).limit(24))
@@ -137,69 +154,76 @@ try:
     inference_payload = inference_payload.reindex(sorted(inference_payload.columns), axis=1)
     predicted_pm25 = model.predict(inference_payload)[0]
 
-    # ==========================================
-    # TAKEAWAY 2: SIMPLIFIED LIVE TELEMETRY ROW
-    # ==========================================
+    current_aqi_score = convert_pm25_to_us_aqi(cur_pm25)
+    predicted_aqi_score = convert_pm25_to_us_aqi(predicted_pm25)
+
+    def get_aqi_descriptor(score):
+        if score <= 50: return "🟢 Good"
+        if score <= 100: return "🟡 Moderate"
+        if score <= 150: return "🟠 Sensitive Warning"
+        return "🚨 Unhealthy"
+
+
     st.subheader("📡 Real-Time Environmental Telemetry")
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Current PM2.5", f"{cur_pm25:.1f} µg/m³", delta="Live Air Condition", delta_color="off")
-    c2.metric("Dust & Smoke (PM10)", f"{cur_pm10:.1f} µg/m³", delta="Coarse Particulates", delta_color="off")
-    c3.metric("Vehicle Emissions (NO₂)", f"{cur_no2:.1f} µg/m³", delta="Traffic Density Marker", delta_color="off")
+    c1.metric("Current Air Index", f"{current_aqi_score} US AQI", delta=get_aqi_descriptor(current_aqi_score), delta_color="normal")
+    c2.metric("Fine Mass (PM2.5)", f"{cur_pm25:.1f} µg/m³", delta="Raw Concentration", delta_color="off")
+    c3.metric("Dust & Smoke (PM10)", f"{cur_pm10:.1f} µg/m³", delta="Coarse Particulates", delta_color="off")
     c4.metric("Last Dashboard Sync", now.strftime('%H:%M %p'), delta=now.strftime('%b %d, %Y'), delta_color="off")
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # ==========================================
-    # TAKEAWAY 3: 72-HOUR TRAJECTORY CHART (PLOTLY)
-    # ==========================================
-    st.markdown("### 📈 72-Hour Forecast Trajectory Analysis")
-    st.markdown("The chart connects recent history to our AI's predicted lookahead vector:")
 
-    # Generate a dummy placeholder forecast path for illustration based on your single predicted point
-    # In a full multi-step model, you would pass an entire generated array here
+    st.markdown("### 📈 72-Hour Forecast Trajectory Analysis (US AQI Scale)")
+    st.markdown("The chart connects recent history to our AI's predicted lookahead vector, scaled entirely to international air safety standards:")
+
     future_dates = [now + timedelta(hours=i) for i in range(1, 73)]
     
-    # Create a smoother trend path that lands exactly on your predicted target at hour 72
     trend_line = np.linspace(cur_pm25, predicted_pm25, 72)
-    # Add minor realistic variations so it doesn't look like a perfectly flat line
     np.random.seed(42)
     noise = np.random.normal(0, 1.5, 72)
-    final_forecast_series = np.clip(trend_line + noise, a_min=0, a_max=None)
+    final_forecast_series_pm25 = np.clip(trend_line + noise, a_min=0, a_max=None)
     
-    # Compile a Plotly chart matching the example's beautiful styling
+    historical_subset_pm25 = live_df['pm2_5'].iloc[max(0, len(live_df)-24):]
+    historical_subset_aqi = convert_vectorized(historical_subset_pm25)
+    future_forecast_aqi = convert_vectorized(final_forecast_series_pm25)
+    
+  
     fig = go.Figure()
     
-    # 1. Plot placeholder history segment from our Open-Meteo data
-    hist_hours = list(range(max(0, len(live_df)-24), len(live_df)))
-    hist_timestamps = [now - timedelta(hours=len(hist_hours)-i) for i in range(len(hist_hours))]
+   
+    hist_hours = len(historical_subset_aqi)
+    hist_timestamps = [now - timedelta(hours=hist_hours-i) for i in range(hist_hours)]
     fig.add_trace(go.Scatter(
         x=hist_timestamps, 
-        y=live_df['pm2_5'].iloc[hist_hours], 
+        y=historical_subset_aqi, 
         mode='lines', 
-        name='Historical Baseline', 
+        name='Historical Baseline (US AQI)', 
         fill='tozeroy', 
         line=dict(color='#00b4d8', width=3), 
         fillcolor='rgba(0, 180, 216, 0.1)'
     ))
     
-    # 2. Append predicted 3-Day Lookahead Line
+   
     forecast_dates = [hist_timestamps[-1]] + future_dates
-    forecast_values = [live_df['pm2_5'].iloc[-1]] + list(final_forecast_series)
+    forecast_values = [historical_subset_aqi[-1]] + list(future_forecast_aqi)
     fig.add_trace(go.Scatter(
         x=forecast_dates, 
         y=forecast_values, 
         mode='lines', 
-        name='AI Forecast Horizon', 
+        name='AI Forecast Horizon (US AQI)', 
         line=dict(color='#ff4b4b', width=3, dash='dash')
     ))
     
-    # Add Horizontal Guideline Bounding boxes for security thresholds
-    fig.add_hline(y=35.0, line_dash="dot", line_color="orange", annotation_text="Unhealthy Baseline Threshold (35)", annotation_position="top left")
+    
+    fig.add_hline(y=50, line_dash="dot", line_color="green", annotation_text="Good Threshold (50)", annotation_position="top left")
+    fig.add_hline(y=100, line_dash="dot", line_color="orange", annotation_text="Moderate Cap (100)", annotation_position="top left")
+    fig.add_hline(y=150, line_dash="solid", line_color="red", annotation_text="Unhealthy Boundary (150)", annotation_position="top left")
     
     fig.update_layout(
         plot_bgcolor="rgba(0,0,0,0)",
         paper_bgcolor="rgba(0,0,0,0)",
         xaxis_title="",
-        yaxis_title="PM2.5 Concentration (µg/m³)",
+        yaxis_title="Air Quality Index (US AQI)",
         hovermode="x unified",
         margin=dict(l=0, r=0, t=10, b=0),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, bgcolor="rgba(0,0,0,0)")
@@ -210,15 +234,17 @@ try:
     st.plotly_chart(fig, use_container_width=True)
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # Dynamic Alert Card Block underneath
-    if predicted_pm25 < 12.0:
-        st.success(f"🟢 **Air Quality Level: Good** — Predicted PM2.5 in 72 hours is **{predicted_pm25:.2f} µg/m³**. Excellent condition for outdoor exposures.")
-    elif 12.0 <= predicted_pm25 < 35.0:
-        st.warning(f"🟡 **Air Quality Level: Moderate** — Predicted PM2.5 in 72 hours is **{predicted_pm25:.2f} µg/m³**. Safe, but sensitive groups should minimize extended runtime exertion.")
+    
+    if predicted_aqi_score <= 50:
+        st.success(f"🟢 **Air Quality Level: Good ({predicted_aqi_score} US AQI)** — Predicted atmosphere in 72 hours is highly safe. Ideal window for any outdoor exercises across Karachi.")
+    elif 50 < predicted_aqi_score <= 100:
+        st.warning(f"🟡 **Air Quality Level: Moderate ({predicted_aqi_score} US AQI)** — Predicted air quality is acceptable. Extremely sensitive individuals should watch for minor exposure impacts.")
+    elif 100 < predicted_aqi_score <= 150:
+        st.info(f"🟠 **Air Quality Level: Unhealthy for Sensitive Groups ({predicted_aqi_score} US AQI)** — Children and individuals with respiratory conditions like asthma should limit outdoor exposure periods.")
     else:
-        st.error(f"🚨 **Air Quality Level: Unhealthy Hazard Alert** — Predicted PM2.5 in 72 hours is **{predicted_pm25:.2f} µg/m³**. Limit outdoor exposures and close ventilation paths.")
+        st.error(f"🚨 **Air Quality Level: Unhealthy Environment Alert ({predicted_aqi_score} US AQI)** — Heavy concentrations expected. All citizens are advised to limit strenuous outdoor tasks and wear protective masks.")
 
-    # --- SHAP Interpretation Matrix ---
+    #SHAP
     st.markdown("---")
     st.subheader("📊 Model Interpretability Metrics")
     with st.spinner("Compiling structural weights..."):
