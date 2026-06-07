@@ -46,7 +46,7 @@ with col_t1:
     st.title("Karachi AQI Prediction Engine by Jahanzeb Yameen")
     st.markdown("<p style='font-size: 1.1rem; color: #a0aab2; margin-top: -15px;'>72-Hour Analytics</p>", unsafe_allow_html=True)
 with col_t2:
-    st.markdown("<div style='text-align: right; padding-top: 20px;'><span style='background-color: #2d313a; padding: 8px 15px; border-radius: 20px; font-size: 0.9rem; border: 1px solid #4CAF50; color: #4CAF50;'>🟢 Status: Running. Active</span></div>", unsafe_allow_html=True)
+    st.markdown("<div style='text-align: right; padding-top: 20px;'><span style='background-color: #2d313a; padding: 8px 15px; border-radius: 20px; font-size: 0.9rem; border: 1px solid #4CAF50; color: #4CAF50;'>🟢 Status: Running.</span></div>", unsafe_allow_html=True)
 st.markdown("---")
 
 
@@ -143,7 +143,7 @@ try:
     c1.metric("Current Air Index", f"{current_aqi_score} US AQI", delta=get_aqi_descriptor(current_aqi_score), delta_color="normal")
     c2.metric("Fine Mass (PM2.5)", f"{cur_pm25:.1f} µg/m³", delta="Raw Concentration", delta_color="off")
     c3.metric("Dust & Smoke (PM10)", f"{cur_pm10:.1f} µg/m³", delta="Coarse Particulates", delta_color="off")
-    c4.metric("Last Database Ingestion", record_time.strftime('%H:%M %p'), delta=record_time.strftime('%b %d, %Y'), delta_color="off")
+    c4.metric("Last Database Sync", datetime.now().strftime('%I:%M %p'), delta=datetime.now().strftime('%b %d, %Y'), delta_color="off")
     st.markdown("<br>", unsafe_allow_html=True)
 
     st.markdown("72-Hour Forecast Trajectory")
