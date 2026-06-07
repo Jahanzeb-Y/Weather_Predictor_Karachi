@@ -6,6 +6,9 @@ An automated, real-time Machine Learning pipeline and interactive analytical das
 # Dashboard Link
 https://jahanzebweather.streamlit.app/
 
+# Project Report
+https://github.com/Jahanzeb-Y/Weather_Predictor_Karachi/blob/main/Karachi_AQI_Report.pdf
+
 # Video Demonstration
 https://www.youtube.com/watch?v=oNvKL2mfI3g&feature=youtu.be
 
