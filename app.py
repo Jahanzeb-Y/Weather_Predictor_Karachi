@@ -90,7 +90,9 @@ try:
     pm25_roll_24h = float(latest_record['pm2_5_roll_24h'])
     pm25_change_rate = float(latest_record['pm2_5_change_rate'])
     
-    utc_time = datetime.strptime(latest_record['timestamp'], '%Y-%m-%d %H:%M:%S')
+    db_timestamp = str(latest_record['timestamp']).split(".")[0]
+    utc_time = datetime.strptime(db_timestamp, '%Y-%m-%d %H:%M:%S')
+    
     record_time = utc_time + timedelta(hours=5)
 
     mongo_records = list(collection.find().sort("timestamp", -1).limit(24))
@@ -144,7 +146,8 @@ try:
     c1.metric("Current Air Index", f"{current_aqi_score} US AQI", delta=get_aqi_descriptor(current_aqi_score), delta_color="normal")
     c2.metric("Fine Mass (PM2.5)", f"{cur_pm25:.1f} µg/m³", delta="Raw Concentration", delta_color="off")
     c3.metric("Dust & Smoke (PM10)", f"{cur_pm10:.1f} µg/m³", delta="Coarse Particulates", delta_color="off")
-    c4.metric("Last Database Sync", datetime.now().strftime('%I:%M %p'), delta=datetime.now().strftime('%b %d, %Y'), delta_color="off")
+    
+    c4.metric("Last Database Sync", record_time.strftime('%I:%M %p'), delta=record_time.strftime('%b %d, %Y'), delta_color="off")
     st.markdown("<br>", unsafe_allow_html=True)
 
     st.markdown("72-Hour Forecast Trajectory")
