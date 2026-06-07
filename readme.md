@@ -1,11 +1,23 @@
 # Karachi 3-Day AQI Prediction Engine
 An automated, real-time Machine Learning pipeline and interactive analytical dashboard designed to forecast Air Quality Index (US AQI) trajectories up to 72 hours out for Karachi.
 
+---
+
+# Dashboard Link
+https://jahanzebweather.streamlit.app/
+
+# Video Demonstration
+https://www.youtube.com/watch?v=oNvKL2mfI3g&feature=youtu.be
+
+---
+
 # Key Highlights
-✅ Live automated feature ingestion from distributed MongoDB storage
-✅ multi-model architecture with interactive framework toggling
-✅ Interactive responsive Streamlit dashboard with real-time 72-hour Plotly forecasts
-✅ Interpretability matrix via Explainable AI (SHAP Framework)
+1. ✅ Live automated feature ingestion from distributed MongoDB storage
+2. ✅ multi-model architecture with interactive framework toggling
+3. ✅ Interactive responsive Streamlit dashboard with real-time 72-hour Plotly forecasts
+4. ✅ Interpretability matrix via Explainable AI (SHAP Framework)
+
+---
 
 # Tech Stack
 * **Language:** Python 3.10+
@@ -15,6 +27,7 @@ An automated, real-time Machine Learning pipeline and interactive analytical das
 * **Visualization:** Streamlit UI, Plotly Graph Objects
 * **Infrastructure & Database:** MongoDB Atlas (Cloud Database)
 
+---
 # System Architecture
 The application runs a continuous end-to-end data processing and inference lifecycle:
 1. **Data Ingestion:** Automatically polls hourly and daily environmental telemetry from a cloud-hosted MongoDB collection (`Karachi_Weather_Forecast`).
