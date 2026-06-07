@@ -10,7 +10,6 @@ import plotly.graph_objects as go
 from datetime import datetime, timedelta
 from pymongo import MongoClient
 
-# --- CONFIGURATION & MONGO URI SELECTION ---
 MONGO_URI = None
 try:
     if "MONGO_URI" in st.secrets:
@@ -44,11 +43,10 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Layout Title
 col_t1, col_t2 = st.columns([3, 1])
 with col_t1:
-    st.title("🌍 Karachi Air Quality Forecast Engine")
-    st.markdown("<p style='font-size: 1.1rem; color: #a0aab2; margin-top: -15px;'>Serverless Machine Learning Architecture | 72-Hour Public Health Analytics</p>", unsafe_allow_html=True)
+    st.title("Karachi AQI Prediction Engine by Jahanzeb Yameen")
+    st.markdown("<p style='font-size: 1.1rem; color: #a0aab2; margin-top: -15px;'>72-Hour Analytics</p>", unsafe_allow_html=True)
 with col_t2:
     st.markdown("<div style='text-align: right; padding-top: 20px;'><span style='background-color: #2d313a; padding: 8px 15px; border-radius: 20px; font-size: 0.9rem; border: 1px solid #4CAF50; color: #4CAF50;'>🟢 Active Syncing</span></div>", unsafe_allow_html=True)
 st.markdown("---")
@@ -56,7 +54,6 @@ st.markdown("---")
 
 def convert_pm25_to_us_aqi(pm25):
     """Converts raw PM2.5 concentration to official US EPA AQI standard score (0-500)."""
-    # Force float element-wise or scalar
     val = float(pm25)
     if val <= 9.0:
         return int(((50 - 0) / (9.0 - 0.0)) * (val - 0.0) + 0)
@@ -71,7 +68,6 @@ def convert_pm25_to_us_aqi(pm25):
     else:
         return int(((500 - 301) / (500.0 - 225.5)) * (val - 225.5) + 301)
 
-# Vectorized variant to run clean mappings across entire pandas columns for our graphs
 convert_vectorized = np.vectorize(convert_pm25_to_us_aqi)
 
 @st.cache_resource
@@ -125,7 +121,6 @@ except Exception:
     pm25_roll_24h = float(live_df['pm2_5'].iloc[-24:].mean())
     pm25_change_rate = float((live_df['pm2_5'].iloc[-1] - live_df['pm2_5'].iloc[-4]) / (live_df['pm2_5'].iloc[-4] + 1e-5))
 
-# 3. Model Inference Setup
 @st.cache_resource
 def load_local_ai_model():
     model_filename = "aqi_model.pkl"
@@ -137,7 +132,6 @@ try:
     model = load_local_ai_model()
     now = datetime.now()
     
-    # Generate the single input payload row
     inference_payload = pd.DataFrame([{
         'pm2_5': cur_pm25,
         'pm10': cur_pm10,
@@ -173,8 +167,8 @@ try:
     st.markdown("<br>", unsafe_allow_html=True)
 
 
-    st.markdown("### 📈 72-Hour Forecast Trajectory Analysis (US AQI Scale)")
-    st.markdown("The chart connects recent history to our AI's predicted lookahead vector, scaled entirely to international air safety standards:")
+    st.markdown("72-Hour Forecast Trajectory")
+
 
     future_dates = [now + timedelta(hours=i) for i in range(1, 73)]
     
@@ -236,18 +230,17 @@ try:
 
     
     if predicted_aqi_score <= 50:
-        st.success(f"🟢 **Air Quality Level: Good ({predicted_aqi_score} US AQI)** — Predicted atmosphere in 72 hours is highly safe. Ideal window for any outdoor exercises across Karachi.")
+        st.success(f"🟢 **Air Quality Level: Good ({predicted_aqi_score} US AQI)** — Predicted air quality in 72 hours is highly safe.")
     elif 50 < predicted_aqi_score <= 100:
-        st.warning(f"🟡 **Air Quality Level: Moderate ({predicted_aqi_score} US AQI)** — Predicted air quality is acceptable. Extremely sensitive individuals should watch for minor exposure impacts.")
+        st.warning(f"🟡 **Air Quality Level: Moderate ({predicted_aqi_score} US AQI)** — Predicted air quality in 72 hours is acceptable.")
     elif 100 < predicted_aqi_score <= 150:
-        st.info(f"🟠 **Air Quality Level: Unhealthy for Sensitive Groups ({predicted_aqi_score} US AQI)** — Children and individuals with respiratory conditions like asthma should limit outdoor exposure periods.")
+        st.info(f"🟠 **Air Quality Level: Unhealthy for Sensitive Groups ({predicted_aqi_score} US AQI)** — Predicted air quality in 72 hours is alarming.")
     else:
-        st.error(f"🚨 **Air Quality Level: Unhealthy Environment Alert ({predicted_aqi_score} US AQI)** — Heavy concentrations expected. All citizens are advised to limit strenuous outdoor tasks and wear protective masks.")
+        st.error(f"🚨 **Air Quality Level: Unhealthy Environment Alert ({predicted_aqi_score} US AQI)** — Predicted air quality in 72 hours is dangerous")
 
-    #SHAP
     st.markdown("---")
-    st.subheader("📊 Model Interpretability Metrics")
-    with st.spinner("Compiling structural weights..."):
+    st.subheader("Model Metrics")
+    with st.spinner("Compiling..."):
         explainer = shap.TreeExplainer(model)
         shap_values = explainer.shap_values(inference_payload)
         fig_shap, ax = plt.subplots(figsize=(10, 3.5))
