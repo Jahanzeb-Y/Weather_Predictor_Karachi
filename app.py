@@ -78,7 +78,14 @@ def get_mongo_collection():
 try:
     collection = get_mongo_collection()
     
-    latest_record = list(collection.find().sort("timestamp", -1).limit(1))[0]
+    current_utc_str = (datetime.utcnow()).strftime('%Y-%m-%d %H:%M:%S')
+    
+    latest_record_query = list(collection.find({"timestamp": {"$lte": current_utc_str}}).sort("timestamp", -1).limit(1))
+    
+    if latest_record_query:
+        latest_record = latest_record_query[0]
+    else:
+        latest_record = list(collection.find().sort("timestamp", -1).limit(1))[0]
     
     cur_pm25 = float(latest_record['pm2_5'])
     cur_pm10 = float(latest_record['pm10'])
@@ -95,7 +102,7 @@ try:
     
     record_time = utc_time + timedelta(hours=5)
 
-    mongo_records = list(collection.find().sort("timestamp", -1).limit(24))
+    mongo_records = list(collection.find({"timestamp": {"$lte": db_timestamp}}).sort("timestamp", -1).limit(24))
     mongo_records.reverse()  # Chronological order
     live_df = pd.DataFrame(mongo_records)
 
@@ -147,7 +154,7 @@ try:
     c2.metric("Fine Mass (PM2.5)", f"{cur_pm25:.1f} µg/m³", delta="Raw Concentration", delta_color="off")
     c3.metric("Dust & Smoke (PM10)", f"{cur_pm10:.1f} µg/m³", delta="Coarse Particulates", delta_color="off")
     
-    c4.metric("Last Database Sync", record_time.strftime('%I:%M %p'), delta=record_time.strftime('%b %d, %Y'), delta_color="off")
+    c4.metric("Last Data Ingestion", record_time.strftime('%I:%M %p'), delta=record_time.strftime('%b %d, %Y'), delta_color="off")
     st.markdown("<br>", unsafe_allow_html=True)
 
     st.markdown("72-Hour Forecast Trajectory")
