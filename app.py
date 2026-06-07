@@ -90,7 +90,8 @@ try:
     pm25_roll_24h = float(latest_record['pm2_5_roll_24h'])
     pm25_change_rate = float(latest_record['pm2_5_change_rate'])
     
-    record_time = datetime.strptime(latest_record['timestamp'], '%Y-%m-%d %H:%M:%S')
+    utc_time = datetime.strptime(latest_record['timestamp'], '%Y-%m-%d %H:%M:%S')
+    record_time = utc_time + timedelta(hours=5)
 
     mongo_records = list(collection.find().sort("timestamp", -1).limit(24))
     mongo_records.reverse()  # Chronological order
