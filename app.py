@@ -46,7 +46,7 @@ with col_t1:
     st.title("Karachi AQI Prediction Engine by Jahanzeb Yameen")
     st.markdown("<p style='font-size: 1.1rem; color: #a0aab2; margin-top: -15px;'>72-Hour Analytics</p>", unsafe_allow_html=True)
 with col_t2:
-    st.markdown("<div style='text-align: right; padding-top: 20px;'><span style='background-color: #2d313a; padding: 8px 15px; border-radius: 20px; font-size: 0.9rem; border: 1px solid #4CAF50; color: #4CAF50;'>🟢 DB Single-Source Active</span></div>", unsafe_allow_html=True)
+    st.markdown("<div style='text-align: right; padding-top: 20px;'><span style='background-color: #2d313a; padding: 8px 15px; border-radius: 20px; font-size: 0.9rem; border: 1px solid #4CAF50; color: #4CAF50;'>🟢 Status: Running. Active</span></div>", unsafe_allow_html=True)
 st.markdown("---")
 
 
