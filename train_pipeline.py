@@ -8,8 +8,10 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import Ridge
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 
-MONGO_URI = os.getenv("MONGO_URI", "mongodb+srv://JahanzebYameen:10603770569@karachiaqifeatures.cmueb2n.mongodb.net/?appName=KarachiAQIFeatures")
-
+MONGO_URI = os.getenv(
+    "MONGO_URI", 
+    "mongodb+srv://JahanzebYameen:10603770569@karachiaqifeatures.cmueb2n.mongodb.net/Karachi_Weather_Forecast?retryWrites=true&w=majority&tls=true"
+)
 def run_model_experimentation():
     print("Connecting to MongoDB")
         
