@@ -1,6 +1,6 @@
 Pipeline Evaluation Summary
-Updated: 2026-06-24 04:48:17
-Random Forest  -> RMSE: 6.0240 | MAE: 4.2129 | R2: 0.5581
-XGBoost Engine -> RMSE: 6.0342 | MAE: 4.2659 | R2: 0.5566
-Ridge Linear   -> RMSE: 8.6478 | MAE: 6.3058 | R2: 0.0892
+Updated: 2026-06-25 04:47:49
+Random Forest  -> RMSE: 5.5989 | MAE: 3.8912 | R2: 0.5806
+XGBoost Engine -> RMSE: 5.7501 | MAE: 4.1972 | R2: 0.5577
+Ridge Linear   -> RMSE: 8.3004 | MAE: 6.1063 | R2: 0.0783
 Current Deployment Leader: Random Forest
